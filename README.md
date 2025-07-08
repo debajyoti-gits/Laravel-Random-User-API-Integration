@@ -19,8 +19,8 @@ A Laravel application that fetches and displays users from the [Random User API]
 ## ⚙️ Setup
 
 ```bash
-git clone <your_repo_url>
-cd user-api-app
+git clone https://github.com/debajyoti-gits/Laravel-Random-User-API-Integration.git
+cd Laravel-Random-User-API-Integration
 composer install
 cp .env.example .env
 php artisan key:generate
