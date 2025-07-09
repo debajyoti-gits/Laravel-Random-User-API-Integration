@@ -11,25 +11,25 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
 {
-
-    public function index() {
+    public function index()
+    {
         $page = request()->get('page', 1);
         $perPage = 10;
         $gender = request()->get('gender');
-        $cacheKey = "users_page_{$page}_gender_" . ($gender ?: 'all');
 
-        $users = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($perPage, $page, $gender) {
+        $baseCacheKey = 'users_base_data_50';
 
+        $allUsers = Cache::remember($baseCacheKey, now()->addMinutes(10), function () {
             try {
                 $response = Http::timeout(5)->get('https://randomuser.me/api/', [
                     'results' => 50,
                 ]);
-        
+
                 if (!$response->successful()) {
-                    return null;
+                    return collect();
                 }
-        
-                $allUsers = collect($response->json('results'))->map(function ($user) {
+
+                return collect($response->json('results'))->map(function ($user) {
                     return [
                         'name' => $user['name']['first'] . ' ' . $user['name']['last'],
                         'email' => $user['email'],
@@ -37,57 +37,60 @@ class UserController extends Controller
                         'nationality' => $user['nat'],
                     ];
                 });
-        
-                if (in_array($gender, ['male', 'female'])) {
-                    $allUsers = $allUsers->where('gender', $gender)->values();
-                }
-        
-                return new LengthAwarePaginator(
-                    $allUsers->forPage($page, $perPage),
-                    $allUsers->count(),
-                    $perPage,
-                    $page,
-                    ['path' => url('/users'), 'query' => ['gender' => $gender]]
-                );
-        
             } catch (\Exception $e) {
-                return null;
+                return collect();
             }
         });
 
-        if (!$users || !$users instanceof LengthAwarePaginator) {
-            $users = new LengthAwarePaginator([], 0, 10, request()->get('page', 1));
-            return view('users.index', ['users' => $users, 'error' => 'Unable to fetch users. Please check your internet connection or API url and try again.']);
+        if (in_array($gender, ['male', 'female'])) {
+            $filteredUsers = $allUsers->where('gender', $gender)->values();
+        } else {
+            $filteredUsers = $allUsers;
         }
 
-        return view('users.index', ['users' => $users, 'error' => null]);
+        $paginatedUsers = new LengthAwarePaginator(
+            $filteredUsers->forPage($page, $perPage),
+            $filteredUsers->count(),
+            $perPage,
+            $page,
+            ['path' => url('/users'), 'query' => ['gender' => $gender]]
+        );
+
+        return view('users.index', [
+            'users' => $paginatedUsers,
+            'error' => $filteredUsers->isEmpty() ? 'Unable to fetch users. Please check your internet connection or API url and try again.' : null
+        ]);
     }
 
-    public function export(): StreamedResponse {
+    public function export(): StreamedResponse
+    {
         $page = request()->get('page', 1);
         $gender = request()->get('gender');
-        $cacheKey = "users_page_{$page}_gender_" . ($gender ?: 'all');
+        $perPage = 10;
 
-        $users = Cache::get($cacheKey);
+        $allUsers = Cache::get('users_base_data_50');
 
-        if (!$users || count($users) === 0) {
+        if (!$allUsers || count($allUsers) === 0) {
             return redirect('/users')->with('error', 'No data to export.');
         }
 
+        if (in_array($gender, ['male', 'female'])) {
+            $filteredUsers = collect($allUsers)->where('gender', $gender)->values();
+        } else {
+            $filteredUsers = collect($allUsers);
+        }
+
+        $pageUsers = $filteredUsers->forPage($page, $perPage);
+
         $filename = "users_page_{$page}_" . ($gender ?: 'all') . ".csv";
 
-        return response()->streamDownload(function () use ($users) {
+        return response()->streamDownload(function () use ($pageUsers) {
             $handle = fopen('php://output', 'w');
-
-            // Write UTF-8 BOM for Excel compatibility
             fwrite($handle, "\xEF\xBB\xBF");
-
             fputcsv($handle, ['Name', 'Email', 'Gender', 'Nationality']);
-
-            foreach ($users as $user) {
+            foreach ($pageUsers as $user) {
                 fputcsv($handle, [$user['name'], $user['email'], ucfirst($user['gender']), $user['nationality']]);
             }
-
             fclose($handle);
         }, $filename);
     }
