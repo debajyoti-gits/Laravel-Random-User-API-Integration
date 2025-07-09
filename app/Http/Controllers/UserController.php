@@ -8,6 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\RedirectResponse;
 
 class UserController extends Controller
 {
@@ -19,7 +20,7 @@ class UserController extends Controller
 
         $baseCacheKey = 'users_base_data_50';
 
-        $allUsers = Cache::remember($baseCacheKey, now()->addMinutes(10), function () {
+        $allUsers = Cache::remember($baseCacheKey, now()->addMinutes(1), function () {
             try {
                 $response = Http::timeout(5)->get('https://randomuser.me/api/', [
                     'results' => 50,
@@ -62,7 +63,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function export(): StreamedResponse
+    public function export(): StreamedResponse|RedirectResponse
     {
         $page = request()->get('page', 1);
         $gender = request()->get('gender');
@@ -86,12 +87,18 @@ class UserController extends Controller
 
         return response()->streamDownload(function () use ($pageUsers) {
             $handle = fopen('php://output', 'w');
+
+            // Write UTF-8 BOM for Excel compatibility
             fwrite($handle, "\xEF\xBB\xBF");
+
             fputcsv($handle, ['Name', 'Email', 'Gender', 'Nationality']);
+
             foreach ($pageUsers as $user) {
                 fputcsv($handle, [$user['name'], $user['email'], ucfirst($user['gender']), $user['nationality']]);
             }
+
             fclose($handle);
+
         }, $filename);
     }
 }
