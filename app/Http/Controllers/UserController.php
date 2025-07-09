@@ -20,7 +20,7 @@ class UserController extends Controller
 
         $baseCacheKey = 'users_base_data_50';
 
-        $allUsers = Cache::remember($baseCacheKey, now()->addMinutes(1), function () {
+        $allUsers = Cache::remember($baseCacheKey, now()->addMinutes(10), function () {
             try {
                 $response = Http::timeout(5)->get('https://randomuser.me/api/', [
                     'results' => 50,
