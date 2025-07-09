@@ -1,22 +1,35 @@
-# Laravel User API App
+# Laravel User List + Export Application
 
-A Laravel application that fetches and displays users from the [Random User API](https://randomuser.me), with support for filtering, pagination, caching, and CSV export.
-
----
-
-## 🚀 Features
-
-- Fetch 50 users from API
-- Paginate 10 users per page
-- Filter by gender (male/female)
-- 10-minute response caching (per page & gender)
-- Export current view to CSV
-- Graceful API error handling
-- Includes basic test for filtering logic
+## Overview
+This Laravel application fetches and displays user data from [https://randomuser.me/api](https://randomuser.me/api).  
+It supports filtering by gender, paginating the results, and exporting the current page to CSV.
 
 ---
 
-## ⚙️ Setup
+## Technology Stack
+- Laravel 12.x  
+- PHP 8.x  
+- Blade Templates + Bootstrap 5  
+- External API: [randomuser.me](https://randomuser.me)  
+- No database used  
+
+---
+
+## Features
+
+- Fetches 50 users from API and caches for 10 minutes.
+- Filter users by gender (male/female).
+- Paginated list of users (10 per page).
+- Exports current paginated + filtered users as CSV.
+- Graceful error handling when API fails.
+- Service class UserApiService handles API logic.
+- Fail-safe pagination: Always returns a LengthAwarePaginator object to prevent Blade crashes.
+- UTF-8 compatibility: in CSV to ensure Excel compatibility.
+- Route-safe Export: Export gracefully redirects if cache expired.
+
+---
+
+## Setup Instructions
 
 ```bash
 git clone https://github.com/debajyoti-gits/Laravel-Random-User-API-Integration.git
